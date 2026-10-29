@@ -1,7 +1,7 @@
 pipeline {
     agent any
     environment {
-        IMAGE = "priyaranjans27/payment-system:v1"
+        IMAGE = "priyaranjans27/payment-system:v2"
     }
     stages {
         stage('Checkout') {

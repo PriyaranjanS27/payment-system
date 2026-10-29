@@ -1,9 +1,12 @@
+from datetime import datetime
+import uuid
+
 from flask import Flask, request, render_template_string
 
 app = Flask(__name__)
 
-PAGE = """
-<h2>Payment System - v2</h2>
+FORM = """
+<h2>Payment System - v3</h2>
 <form method="POST">
   Name: <input name="name" value="{{ name }}" required><br><br>
   Amount: <input name="amount" type="number" value="{{ amount }}" required><br><br>
@@ -21,7 +24,21 @@ PAGE = """
     {% for e in errors %}<li>{{ e }}</li>{% endfor %}
   </ul>
 {% endif %}
-{% if msg %}<p style="color:green"><b>{{ msg }}</b></p>{% endif %}
+"""
+
+RECEIPT = """
+<h2>Payment System - v3</h2>
+<div style="border:2px solid green; padding:16px; width:360px">
+  <h3 style="color:green">Payment Successful</h3>
+  <p><b>Transaction ID:</b> {{ r.txn_id }}</p>
+  <p><b>Name:</b> {{ r.name }}</p>
+  <p><b>Amount:</b> {{ r.amount }}</p>
+  <p><b>Method:</b> {{ r.method }}</p>
+  <p><b>Paid with:</b> {{ r.masked }}</p>
+  <p><b>Date &amp; time:</b> {{ r.time }}</p>
+  <p><b>Status:</b> CONFIRMED</p>
+</div>
+<p><a href="/">Make another payment</a></p>
 """
 
 def validate(name, amount, method, detail):
@@ -45,9 +62,15 @@ def validate(name, amount, method, detail):
             errors.append("UPI ID must look like name@bank.")
     return errors
 
+def mask(method, detail):
+    if method == "Card":
+        digits = detail.replace(" ", "")
+        return "**** **** **** " + digits[-4:]
+    return detail
+
 @app.route("/", methods=["GET", "POST"])
 def index():
-    msg, errors = None, []
+    errors = []
     name = amount = detail = ""
     method = "Card"
     if request.method == "POST":
@@ -57,10 +80,17 @@ def index():
         detail = request.form["detail"]
         errors = validate(name, amount, method, detail)
         if not errors:
-            msg = f"Payment details valid: {amount} by {name} via {method}"
-    return render_template_string(PAGE, msg=msg, errors=errors,
-                                  name=name, amount=amount,
-                                  method=method, detail=detail)
+            receipt = {
+                "txn_id": "TXN-" + uuid.uuid4().hex[:10].upper(),
+                "name": name.strip(),
+                "amount": amount,
+                "method": method,
+                "masked": mask(method, detail),
+                "time": datetime.now().strftime("%d-%m-%Y %H:%M:%S"),
+            }
+            return render_template_string(RECEIPT, r=receipt)
+    return render_template_string(FORM, errors=errors, name=name,
+                                  amount=amount, method=method, detail=detail)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
